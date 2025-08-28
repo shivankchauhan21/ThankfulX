@@ -29,11 +29,13 @@ const checkCredits = async (req, res, next) => {
             return user;
         });
         // Attach user to request for later use
-        req.user = { ...req.user, credits: user.credits };
+        if (req.user) {
+            req.user = { ...req.user, credits: user.credits };
+        }
         next();
     }
     catch (error) {
-        if (error instanceof AppError) {
+        if (error instanceof errors_1.AppError) {
             throw error;
         }
         throw new errors_1.DatabaseError('Failed to check user credits');

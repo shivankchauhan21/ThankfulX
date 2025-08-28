@@ -36,16 +36,22 @@ app.use((0, cors_1.default)(corsOptions));
 app.use((0, morgan_1.default)('dev'));
 app.use(express_1.default.json());
 app.use((0, cookie_parser_1.default)());
-// Rate limiting
-const limiter = (0, express_rate_limit_1.rateLimit)({
+// Global rate limiting
+const globalLimiter = (0, express_rate_limit_1.rateLimit)({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: process.env.NODE_ENV === 'development' ? 1000 : 100, // Higher limit for development
     message: { status: 'error', message: 'Too many requests, please try again later' }
 });
-app.use(limiter);
+// Stricter rate limiting for message generation
+const messageLimiter = (0, express_rate_limit_1.rateLimit)({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: process.env.NODE_ENV === 'development' ? 50 : 10, // Limit message generation requests
+    message: { status: 'error', message: 'Too many message generation requests, please wait a moment' }
+});
+app.use(globalLimiter);
 // Routes
 app.use('/api/upload', upload_routes_1.default);
-app.use('/api/messages', message_routes_1.default);
+app.use('/api/messages', messageLimiter, message_routes_1.default); // Apply message-specific rate limiting
 app.use('/api/auth', auth_1.default);
 // Health check endpoint
 app.get('/health', (req, res) => {

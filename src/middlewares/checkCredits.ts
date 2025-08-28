@@ -4,7 +4,8 @@ import { AuthRequest } from '../types/middleware';
 import { 
   AuthenticationError, 
   InsufficientCreditsError, 
-  DatabaseError 
+  DatabaseError,
+  AppError
 } from '../utils/errors';
 
 export const checkCredits = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -35,7 +36,9 @@ export const checkCredits = async (req: AuthRequest, res: Response, next: NextFu
     });
 
     // Attach user to request for later use
-    req.user = { ...req.user, credits: user.credits };
+    if (req.user) {
+      req.user = { ...req.user, credits: user.credits };
+    }
     next();
   } catch (error) {
     if (error instanceof AppError) {

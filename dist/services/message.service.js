@@ -128,11 +128,13 @@ async function generateMessage(req, res) {
             logger_1.logger.error('AI service error', { error, prompt });
             throw new errors_1.AIServiceError('Failed to generate message');
         }
-        // Calculate cost for single message
+        // Calculate cost for single message with proper parameters
         const cost = (0, creditCalculator_1.calculateCreditCost)(1, {
             style,
             length,
-            language
+            language,
+            creativity: 0.7, // Default creativity
+            hasProducts: products.length > 0 && products.some((p) => p.trim() !== '')
         });
         try {
             // Use a single transaction for credit check, deduction, and message storage
@@ -177,14 +179,8 @@ async function generateMessage(req, res) {
         }
         return res.json({
             status: 'success',
-            data: {
-                message: aiResponse,
-                cost: (0, creditCalculator_1.calculateCreditCost)(1, {
-                    style,
-                    length,
-                    language
-                })
-            }
+            message: aiResponse,
+            cost: cost
         });
     }
     catch (error) {

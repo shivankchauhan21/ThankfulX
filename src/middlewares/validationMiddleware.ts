@@ -18,7 +18,9 @@ export const generateMessageSchema = z.object({
     }),
     language: z.enum(['en', 'es', 'fr', 'de'], {
       errorMap: () => ({ message: 'Language must be one of: en, es, fr, de' })
-    })
+    }),
+    creativity: z.number().min(0).max(1).optional(),
+    hasProducts: z.boolean().optional()
   }),
   organizationId: z.string().uuid('Invalid organization ID format').optional()
 });

@@ -5,6 +5,7 @@ import fs from 'fs';
 import { processFile } from '../services/file.service';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { authenticateToken } from '../middlewares/authMiddleware';
 
 const router = express.Router();
 
@@ -112,7 +113,7 @@ const uploadHandler: RequestHandler = async (req: Request, res: Response, next: 
   }
 };
 
-// Apply multer middleware and route handler
-router.post('/', upload.single('file'), uploadHandler);
+// Apply authentication, multer middleware and route handler
+router.post('/', authenticateToken, upload.single('file'), uploadHandler);
 
 export default router; 

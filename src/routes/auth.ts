@@ -4,6 +4,7 @@ import { verifyPassword, signJwt, hashPassword, verifyJwt } from '../utils/authU
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { AppError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { authenticateToken } from '../middlewares/authMiddleware';
 
 const router = express.Router();
 
@@ -32,11 +33,13 @@ router.post('/signup', async (req: Request, res: Response, next: NextFunction): 
 
     // Create new user
     const hashedPassword = await hashPassword(password);
+    const freeTrialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 1 week from now
     const user = await prisma.user.create({
       data: {
         email,
         name: `${firstName} ${lastName}`,
         password: hashedPassword,
+        freeTrialEndsAt,
       },
       select: {
         id: true,
@@ -45,6 +48,7 @@ router.post('/signup', async (req: Request, res: Response, next: NextFunction): 
         role: true,
         credits: true,
         createdAt: true,
+        freeTrialEndsAt: true,
       },
     });
 
@@ -60,8 +64,10 @@ router.post('/signup', async (req: Request, res: Response, next: NextFunction): 
     });
 
     res.status(201).json({
+      status: 'success',
       message: 'Account created successfully',
       user,
+      token,
     });
   } catch (error) {
     logger.error('Signup error:', { error: error instanceof Error ? error.message : 'Unknown error' });
@@ -110,6 +116,7 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction): P
 
     // Return user data (excluding sensitive information)
     res.json({
+      status: 'success',
       message: 'Login successful',
       user: {
         id: user.id,
@@ -118,7 +125,9 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction): P
         role: user.role,
         credits: user.credits,
         createdAt: user.createdAt,
+        freeTrialEndsAt: user.freeTrialEndsAt,
       },
+      token,
     });
   } catch (error) {
     logger.error('Login error:', { error: error instanceof Error ? error.message : 'Unknown error' });
@@ -140,16 +149,18 @@ router.post('/logout', (req: Request, res: Response) => {
 });
 
 // Get current user route
-router.get('/me', async (req: AuthRequest, res: Response) => {
+router.get('/me', async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   const token = req.cookies['token'];
   if (!token) {
-    return res.status(401).json({ error: 'Not authenticated' });
+    res.status(401).json({ error: 'Not authenticated' });
+    return;
   }
 
   try {
     const decoded = verifyJwt(token);
     if (!decoded || typeof decoded === 'string') {
-      return res.status(401).json({ error: 'Invalid token' });
+      res.status(401).json({ error: 'Invalid token' });
+      return;
     }
 
     const { userId } = decoded as { userId: string };
@@ -166,13 +177,53 @@ router.get('/me', async (req: AuthRequest, res: Response) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
 
-    res.json({ user });
+    res.json({ 
+      status: 'success',
+      user 
+    });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to get user data' });
+  }
+});
+
+// Credit purchase endpoint (basic structure)
+router.post('/purchase-credits', authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  const { creditAmount, paymentMethod } = req.body;
+  const userId = req.user?.id;
+
+  if (!creditAmount || creditAmount <= 0) {
+    res.status(400).json({ 
+      status: 'error',
+      message: 'Invalid credit amount' 
+    });
+    return;
+  }
+
+  try {
+    // TODO: Implement actual payment processing
+    // For now, just add credits to user account
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { credits: { increment: creditAmount } },
+      select: { credits: true }
+    });
+
+    res.json({
+      status: 'success',
+      message: `Successfully purchased ${creditAmount} credits`,
+      data: { newCreditBalance: user.credits }
+    });
+  } catch (error) {
+    logger.error('Credit purchase failed', { error, userId });
+    res.status(500).json({ 
+      status: 'error',
+      message: 'Failed to process credit purchase' 
+    });
   }
 });
 

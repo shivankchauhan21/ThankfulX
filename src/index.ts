@@ -37,17 +37,25 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(cookieParser());
 
-// Rate limiting
-const limiter = rateLimit({
+// Global rate limiting
+const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // Higher limit for development
   message: { status: 'error', message: 'Too many requests, please try again later' }
 });
-app.use(limiter);
+
+// Stricter rate limiting for message generation
+const messageLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: process.env.NODE_ENV === 'development' ? 50 : 10, // Limit message generation requests
+  message: { status: 'error', message: 'Too many message generation requests, please wait a moment' }
+});
+
+app.use(globalLimiter);
 
 // Routes
 app.use('/api/upload', uploadRoutes);
-app.use('/api/messages', messageRoutes);
+app.use('/api/messages', messageLimiter, messageRoutes); // Apply message-specific rate limiting
 app.use('/api/auth', authRoutes);
 
 // Health check endpoint

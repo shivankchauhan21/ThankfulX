@@ -26,6 +26,8 @@ export interface MessageOptions {
   style: 'formal' | 'casual' | 'friendly' | 'professional';
   length: 'short' | 'medium' | 'long';
   language: 'en' | 'es' | 'fr' | 'de';
+  creativity?: number;
+  hasProducts?: boolean;
 }
 
 export interface GeneratedMessage {
@@ -177,11 +179,13 @@ export async function generateMessage(req: AuthRequest, res: Response) {
       throw new AIServiceError('Failed to generate message');
     }
 
-    // Calculate cost for single message
+    // Calculate cost for single message with proper parameters
     const cost = calculateCreditCost(1, {
       style,
       length,
-      language
+      language,
+      creativity: 0.7, // Default creativity
+      hasProducts: products.length > 0 && products.some((p: string) => p.trim() !== '')
     });
 
     try {
@@ -231,14 +235,8 @@ export async function generateMessage(req: AuthRequest, res: Response) {
 
     return res.json({
       status: 'success',
-      data: {
-        message: aiResponse,
-        cost: calculateCreditCost(1, {
-          style,
-          length,
-          language
-        })
-      }
+      message: aiResponse,
+      cost: cost
     });
   } catch (error) {
     // Let the error handler middleware handle the error

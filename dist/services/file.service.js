@@ -45,12 +45,14 @@ async function processFile(filePath) {
         // Validate and transform data
         const customers = data.map((row) => {
             // Check for required columns with their exact names
-            if (!row['Customer Name'] || !row['Product Description']) {
-                throw new Error('File must contain "Customer Name" and "Product Description" columns');
+            if (!row['Customer Name']) {
+                throw new Error('File must contain "Customer Name" column');
             }
+            // Product Description is optional
+            const productDescription = row['Product Description'] ? String(row['Product Description']).trim() : '';
             return {
                 name: String(row['Customer Name']).trim(),
-                productDescription: String(row['Product Description']).trim(),
+                productDescription,
                 ...row // Include any additional fields if present
             };
         });
